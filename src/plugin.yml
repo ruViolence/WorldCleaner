@@ -1,0 +1,7 @@
+name: WorldCleaner
+main: ru.violence.worldcleaner.WorldCleanerPlugin
+version: 0.1.0
+depend: [LightCleaner, WorldGuard]
+
+commands:
+  worldcleaner:
