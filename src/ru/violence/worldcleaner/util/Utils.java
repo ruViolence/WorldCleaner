@@ -27,6 +27,7 @@ import org.bukkit.craftbukkit.v1_12_R1.CraftWorld;
 import org.bukkit.craftbukkit.v1_12_R1.util.CraftMagicNumbers;
 import org.bukkit.entity.Player;
 import ru.violence.worldcleaner.RegenChunk;
+import ru.violence.worldcleaner.WorldCleanerPlugin;
 
 import javax.annotation.Nullable;
 import java.io.File;
@@ -57,7 +58,12 @@ public class Utils {
         NBTTagCompound nbt = new NBTTagCompound();
         fromTileEntity.save(nbt);
 
-        ((CraftWorld) toWorld).getHandle().getTileEntity(pos).load(nbt);
+        TileEntity realTileEntity = ((CraftWorld) toWorld).getHandle().getTileEntity(pos);
+        if (realTileEntity != null) {
+            realTileEntity.load(nbt);
+        } else {
+            WorldCleanerPlugin.getInstance().getLogger().warning("Tile entity does not exists in the real world on pos: " + pos + ", while it's exists in the temp world: " + fromTileEntity);
+        }
     }
 
     public boolean isLoaded(World world) {
