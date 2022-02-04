@@ -2,6 +2,7 @@ package ru.violence.worldcleaner;
 
 import net.minecraft.server.v1_12_R1.BiomeBase;
 import net.minecraft.server.v1_12_R1.WorldGenBigTree;
+import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
@@ -21,6 +22,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import ru.violence.worldcleaner.util.Utils;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
@@ -60,9 +62,37 @@ public class TempWorld {
             throw new TempWorldCreateException(TempWorldCreateException.Reason.ALREADY_EXISTS);
         }
 
-        World world = Bukkit.getWorld(realWorld + TempWorld.TEMP_WORLD_SUFFIX);
+        String tempWorldName = realWorld.getName() + TempWorld.TEMP_WORLD_SUFFIX;
+        File realWorldFolder = new File(Bukkit.getWorldContainer(), realWorld.getName());
+        File tempWorldFolder = new File(Bukkit.getWorldContainer(), tempWorldName);
+
+        World world = Bukkit.getWorld(tempWorldName);
         if (world == null) {
-            WorldCreator copy = new WorldCreator(realWorld.getName() + TempWorld.TEMP_WORLD_SUFFIX).copy(realWorld);
+            try { // Copy PersistentStructure and OpenTerrainGenerator data
+                if (tempWorldFolder.exists()) {
+                    FileUtils.deleteDirectory(tempWorldFolder);
+                }
+
+                tempWorldFolder.mkdirs();
+
+                for (File file : realWorldFolder.listFiles()) {
+                    if (file.getName().equals("session.lock")) continue;
+                    if (file.getName().equals("uid.dat")) continue;
+                    if (file.getName().equals("playerdata")) continue;
+                    if (file.getName().equals("region")) continue;
+                    if (file.getName().equals("level.dat_old")) continue;
+
+                    if (file.isDirectory()) {
+                        FileUtils.copyDirectory(file, new File(tempWorldFolder, file.getName()));
+                    } else {
+                        FileUtils.copyFile(file, new File(tempWorldFolder, file.getName()));
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            WorldCreator copy = new WorldCreator(tempWorldName).copy(realWorld);
             copy.type(realWorld.getWorldType());
             copy.generateStructures(realWorld.canGenerateStructures());
             world = Bukkit.createWorld(copy);
