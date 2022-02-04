@@ -94,7 +94,10 @@ public class Utils {
     public boolean isInAnyRegion(int x, int z, List<ProtectedRegion> regions) {
         BlockVector2D pos = new BlockVector2D(x, z);
         for (int i = 0; i < regions.size(); i++) {
-            if (regions.get(i).contains(pos)) {
+            ProtectedRegion region = regions.get(i);
+            if (region.getMinimumPoint().getBlockY() == 0 
+                    && region.getMaximumPoint().getBlockY() == 255
+                    && region.contains(pos)) {
                 return true;
             }
         }
