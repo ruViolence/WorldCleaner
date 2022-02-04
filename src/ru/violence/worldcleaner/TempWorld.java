@@ -68,6 +68,8 @@ public class TempWorld {
 
         World world = Bukkit.getWorld(tempWorldName);
         if (world == null) {
+            realWorld.save(); // Save to copy up-to-date data below
+
             try { // Copy PersistentStructure and OpenTerrainGenerator data
                 if (tempWorldFolder.exists()) {
                     FileUtils.deleteDirectory(tempWorldFolder);
@@ -78,12 +80,22 @@ public class TempWorld {
                 for (File file : realWorldFolder.listFiles()) {
                     if (file.getName().equals("session.lock")) continue;
                     if (file.getName().equals("uid.dat")) continue;
+                    if (file.getName().equals("advancements")) continue;
                     if (file.getName().equals("playerdata")) continue;
+                    if (file.getName().equals("stats")) continue;
                     if (file.getName().equals("region")) continue;
                     if (file.getName().equals("level.dat_old")) continue;
 
                     if (file.isDirectory()) {
-                        FileUtils.copyDirectory(file, new File(tempWorldFolder, file.getName()));
+                        FileUtils.copyDirectory(file, new File(tempWorldFolder, file.getName()), pathname -> {
+                            if (!file.getName().equals("data") || !pathname.getParentFile().equals(file)) return true;
+                            if (pathname.getName().equals("advancements")) return false;
+                            if (pathname.getName().equals("functions")) return false;
+                            if (pathname.getName().equals("idcounts.dat")) return false;
+                            if (pathname.getName().equals("scoreboard.dat")) return false;
+                            if (pathname.getName().startsWith("map_")) return false;
+                            return true;
+                        });
                     } else {
                         FileUtils.copyFile(file, new File(tempWorldFolder, file.getName()));
                     }
