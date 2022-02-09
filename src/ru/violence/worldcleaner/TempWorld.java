@@ -15,7 +15,6 @@ import org.bukkit.event.block.BlockFadeEvent;
 import org.bukkit.event.block.BlockFormEvent;
 import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
-import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.entity.EntityTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -152,13 +151,6 @@ public class TempWorld {
         @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
         public void onEntityTeleport(PlayerTeleportEvent event) {
             if (TempWorld.this.tempWorld == event.getTo().getWorld()) {
-                event.setCancelled(true);
-            }
-        }
-
-        @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-        public void onPhysicsInTemp(BlockPhysicsEvent event) {
-            if (TempWorld.this.tempWorld == event.getBlock().getWorld()) {
                 event.setCancelled(true);
             }
         }
