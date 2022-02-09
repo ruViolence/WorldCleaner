@@ -28,6 +28,39 @@ public class PrepareChunkToGenerateList extends TickTimeLimitedIndexIteratorTask
                 this.runnable.getChunkToGenerate().add(chunkCoord);
             }
         }
+        // If the last iteration
+        if (currentIndex + 1 == getTotal()) {
+            this.runnable.getChunkToGenerate().sort((a, b) -> {
+                if (a.equals(b)) {
+                    return 0;
+                }
+
+                // Subtract current position to set center point
+                int ax = a.left - runnable.getMiddleX();
+                int az = a.right - runnable.getMiddleZ();
+                int bx = b.left - runnable.getMiddleX();
+                int bz = b.right - runnable.getMiddleZ();
+
+                int result = ((ax - bx) * (ax + bx)) + ((az - bz) * (az + bz));
+                if (result != 0) {
+                    return result;
+                }
+
+                if (ax < 0) {
+                    if (bx < 0) {
+                        return bz - az;
+                    } else {
+                        return -1;
+                    }
+                } else {
+                    if (bx < 0) {
+                        return 1;
+                    } else {
+                        return az - bz;
+                    }
+                }
+            });
+        }
         return true;
     }
 
