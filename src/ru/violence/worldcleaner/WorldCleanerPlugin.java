@@ -18,7 +18,7 @@ import java.util.UUID;
 
 public class WorldCleanerPlugin extends JavaPlugin implements Listener {
     private static @Getter WorldCleanerPlugin instance;
-    private final @Getter Map<UUID, RegenRunnable> workingPlayers = new HashMap<>(1);
+    private final @Getter Map<UUID, RegenRunnable> workingPlayers = new HashMap<>();
 
     @Override
     public void onLoad() {
@@ -67,11 +67,6 @@ public class WorldCleanerPlugin extends JavaPlugin implements Listener {
 
         if (this.workingPlayers.containsKey(player.getUniqueId())) {
             player.sendMessage("§cYou are already processing a task!");
-            return true;
-        }
-
-        if (TempWorld.get(realWorld) != null) {
-            player.sendMessage("§cCleaning for this world is already running!");
             return true;
         }
 
