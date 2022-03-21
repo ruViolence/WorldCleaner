@@ -1,12 +1,9 @@
 package ru.violence.worldcleaner;
 
-import net.minecraft.server.v1_12_R1.BiomeBase;
-import net.minecraft.server.v1_12_R1.WorldGenBigTree;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
-import org.bukkit.craftbukkit.v1_12_R1.CraftWorld;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
@@ -20,10 +17,10 @@ import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.entity.EntityTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
+import org.jetbrains.annotations.NotNull;
 import ru.violence.worldcleaner.util.Utils;
 
 import java.io.File;
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -38,9 +35,9 @@ public class TempWorld {
 
     private boolean isWorldUnloaded = false;
 
-    private TempWorld(World realWorld, World tempWorld) {
-        this.realWorld = realWorld;
-        this.tempWorld = tempWorld;
+    private TempWorld(@NotNull World realWorld, @NotNull World tempWorld) {
+        this.realWorld = Preconditions.checkNotNull(realWorld);
+        this.tempWorld = Preconditions.checkNotNull(tempWorld);
         Bukkit.getPluginManager().registerEvents(this.listener, WorldCleanerPlugin.getInstance());
     }
 
@@ -69,65 +66,62 @@ public class TempWorld {
 
         World world = Bukkit.getWorld(tempWorldName);
         if (world == null) {
-            realWorld.save(); // Save to copy up-to-date data below
-
-            try { // Copy PersistentStructure and OpenTerrainGenerator data
-                if (tempWorldFolder.exists()) {
-                    FileUtils.deleteDirectory(tempWorldFolder);
-                }
-
-                tempWorldFolder.mkdirs();
-
-                for (File file : realWorldFolder.listFiles()) {
-                    if (file.getName().equals("session.lock")) continue;
-                    if (file.getName().equals("uid.dat")) continue;
-                    if (file.getName().equals("advancements")) continue;
-                    if (file.getName().equals("playerdata")) continue;
-                    if (file.getName().equals("stats")) continue;
-                    if (file.getName().equals("region")) continue;
-                    if (file.getName().equals("level.dat_old")) continue;
-
-                    if (file.isDirectory()) {
-                        FileUtils.copyDirectory(file, new File(tempWorldFolder, file.getName()), pathname -> {
-                            if (!file.getName().equals("data") || !pathname.getParentFile().equals(file)) return true;
-                            if (pathname.getName().equals("advancements")) return false;
-                            if (pathname.getName().equals("functions")) return false;
-                            if (pathname.getName().equals("idcounts.dat")) return false;
-                            if (pathname.getName().equals("scoreboard.dat")) return false;
-                            if (pathname.getName().startsWith("map_")) return false;
-                            return true;
-                        });
-                    } else {
-                        FileUtils.copyFile(file, new File(tempWorldFolder, file.getName()));
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            WorldCreator copy = new WorldCreator(tempWorldName).copy(realWorld);
-            copy.type(realWorld.getWorldType());
-            copy.generateStructures(realWorld.canGenerateStructures());
-            world = Bukkit.createWorld(copy);
-            world.setDifficulty(realWorld.getDifficulty());
-            world.setGameRuleValue("doDaylightCycle", "false");
-            world.setGameRuleValue("doEntityDrops", "false");
-            world.setGameRuleValue("doFireTick", "false");
-            world.setGameRuleValue("doMobLoot", "false");
-            world.setGameRuleValue("maxEntityCramming", "0");
-            world.setGameRuleValue("mobGriefing", "false");
-            world.setGameRuleValue("doWeatherCycle", "false");
-            world.setGameRuleValue("randomTickSpeed", "0");
-            world.setGameRuleValue("spawnRadius", "0");
+            world = createNewTempWorld(realWorld, realWorldFolder, tempWorldFolder);
         }
 
-        TempWorld tempWorld = new TempWorld(realWorld, world);
+        TempWorld tempWorld = new TempWorld(realWorldFolder, tempWorldFolder, realWorld, world);
         realToTempWorldMap.put(realWorld.getUID(), tempWorld);
 
         return tempWorld;
     }
 
-    public World getWorld() throws TempWorldNotLoadedException {
+    private static @NotNull World createNewTempWorld(@NotNull World realWorld, @NotNull File realWorldFolder, @NotNull File tempWorldFolder) {
+        realWorld.save(); // Save to copy up-to-date data below
+
+        try { // Copy PersistentStructure and other data
+            if (tempWorldFolder.exists()) {
+                FileUtils.deleteDirectory(tempWorldFolder);
+            }
+
+            tempWorldFolder.mkdirs();
+
+            for (File file : realWorldFolder.listFiles()) {
+                if (Utils.isExcludedRootFile(file)) continue;
+
+                if (file.isDirectory()) {
+                    FileUtils.copyDirectory(file, new File(tempWorldFolder, file.getName()), pathname -> {
+                        if (!file.getName().equals("data") || !pathname.getParentFile().equals(file)) return true;
+                        return !Utils.isExcludedDataFile(pathname);
+                    });
+                } else {
+                    FileUtils.copyFile(file, new File(tempWorldFolder, file.getName()));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        WorldCreator copy = new WorldCreator(tempWorldFolder.getName()).copy(realWorld);
+        copy.type(realWorld.getWorldType());
+        copy.generateStructures(realWorld.canGenerateStructures());
+
+        World world = Bukkit.createWorld(copy);
+
+        world.setDifficulty(realWorld.getDifficulty());
+        world.setGameRuleValue("doDaylightCycle", "false");
+        world.setGameRuleValue("doEntityDrops", "false");
+        world.setGameRuleValue("doFireTick", "false");
+        world.setGameRuleValue("doMobLoot", "false");
+        world.setGameRuleValue("maxEntityCramming", "0");
+        world.setGameRuleValue("mobGriefing", "false");
+        world.setGameRuleValue("doWeatherCycle", "false");
+        world.setGameRuleValue("randomTickSpeed", "0");
+        world.setGameRuleValue("spawnRadius", "0");
+
+        return world;
+    }
+
+    public @NotNull World getWorld() throws TempWorldNotLoadedException {
         if (this.isWorldUnloaded) throw TempWorldNotLoadedException.INSTANCE;
         return this.tempWorld;
     }
@@ -138,19 +132,7 @@ public class TempWorld {
         Utils.deleteWorldFolder(this.tempWorld.getName());
         realToTempWorldMap.remove(this.realWorld.getUID());
 
-        // Let the GC delete the world from memory (MC-128547)
-        try {
-            Field f1 = BiomeBase.class.getDeclaredField("n");
-            f1.setAccessible(true);
-            WorldGenBigTree genBigTree = (WorldGenBigTree) f1.get(BiomeBase.class);
-            Field f2 = WorldGenBigTree.class.getDeclaredField("l");
-            f2.setAccessible(true);
-            if (f2.get(genBigTree) == ((CraftWorld) this.tempWorld).getHandle()) {
-                f2.set(genBigTree, null);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        Utils.fixMC128547(tempWorld);
     }
 
     private void unregisterListener() {

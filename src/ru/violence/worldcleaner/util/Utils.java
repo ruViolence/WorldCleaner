@@ -7,6 +7,7 @@ import com.sk89q.worldedit.Vector;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import lombok.experimental.UtilityClass;
+import net.minecraft.server.v1_12_R1.BiomeBase;
 import net.minecraft.server.v1_12_R1.Block;
 import net.minecraft.server.v1_12_R1.BlockPosition;
 import net.minecraft.server.v1_12_R1.BlockTileEntity;
@@ -16,6 +17,7 @@ import net.minecraft.server.v1_12_R1.IBlockData;
 import net.minecraft.server.v1_12_R1.ITileEntity;
 import net.minecraft.server.v1_12_R1.NBTTagCompound;
 import net.minecraft.server.v1_12_R1.TileEntity;
+import net.minecraft.server.v1_12_R1.WorldGenBigTree;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChunkSnapshot;
@@ -32,6 +34,7 @@ import ru.violence.worldcleaner.WorldCleanerPlugin;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -95,7 +98,7 @@ public class Utils {
         BlockVector2D pos = new BlockVector2D(x, z);
         for (int i = 0; i < regions.size(); i++) {
             ProtectedRegion region = regions.get(i);
-            if (region.getMinimumPoint().getBlockY() == 0 
+            if (region.getMinimumPoint().getBlockY() == 0
                     && region.getMaximumPoint().getBlockY() == 255
                     && region.contains(pos)) {
                 return true;
@@ -305,5 +308,47 @@ public class Utils {
         }
 
         return hashset;
+    }
+
+    public void fixMC128547(World world) {
+        // Let the GC delete the world from memory (MC-128547)
+        try {
+            Field f1 = BiomeBase.class.getDeclaredField("n");
+            f1.setAccessible(true);
+            WorldGenBigTree genBigTree = (WorldGenBigTree) f1.get(BiomeBase.class);
+            Field f2 = WorldGenBigTree.class.getDeclaredField("l");
+            f2.setAccessible(true);
+            if (f2.get(genBigTree) == ((CraftWorld) world).getHandle()) {
+                f2.set(genBigTree, null);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public boolean isExcludedRootFile(File file) {
+        switch (file.getName()) {
+            case "session.lock":
+            case "uid.dat":
+            case "advancements":
+            case "playerdata":
+            case "stats":
+            case "region":
+            case "level.dat_old":
+                return true;
+        }
+        return false;
+    }
+
+    public boolean isExcludedDataFile(File file) {
+        String name = file.getName();
+        switch (name) {
+            case "advancements":
+            case "functions":
+            case "idcounts.dat":
+            case "scoreboard.dat":
+                return true;
+        }
+        return name.startsWith("map_") && name.endsWith(".dat");
     }
 }
