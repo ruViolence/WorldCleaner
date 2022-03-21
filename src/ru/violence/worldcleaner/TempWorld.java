@@ -1,5 +1,6 @@
 package ru.violence.worldcleaner;
 
+import com.google.common.base.Preconditions;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -18,24 +19,32 @@ import org.bukkit.event.entity.EntityTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import ru.violence.worldcleaner.util.Utils;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public class TempWorld {
     public final static String TEMP_WORLD_SUFFIX = "_WorldCleaner_Temp";
+    private static final File CACHED_TEMP_WORLDS = new File(WorldCleanerPlugin.getInstance().getDataFolder(), "worlds");
     private static final Map<UUID, TempWorld> realToTempWorldMap = new HashMap<>(1);
 
+    private final File realWorldFolder;
+    private final File tempWorldFolder;
     private final World realWorld;
     private final World tempWorld;
     private final WorldListener listener = new WorldListener();
 
     private boolean isWorldUnloaded = false;
 
-    private TempWorld(@NotNull World realWorld, @NotNull World tempWorld) {
+    private TempWorld(@NotNull File realWorldFolder, @NotNull File tempWorldFolder, @NotNull World realWorld, @NotNull World tempWorld) {
+        this.realWorldFolder = Preconditions.checkNotNull(realWorldFolder);
+        this.tempWorldFolder = Preconditions.checkNotNull(tempWorldFolder);
         this.realWorld = Preconditions.checkNotNull(realWorld);
         this.tempWorld = Preconditions.checkNotNull(tempWorld);
         Bukkit.getPluginManager().registerEvents(this.listener, WorldCleanerPlugin.getInstance());
@@ -43,7 +52,7 @@ public class TempWorld {
 
     public static void terminate(WorldCleanerPlugin plugin) {
         for (TempWorld tempWorld : realToTempWorldMap.values()) {
-            tempWorld.deleteWorld();
+            tempWorld.unloadWorld();
         }
         realToTempWorldMap.clear();
     }
@@ -65,7 +74,21 @@ public class TempWorld {
         File tempWorldFolder = new File(Bukkit.getWorldContainer(), tempWorldName);
 
         World world = Bukkit.getWorld(tempWorldName);
-        if (world == null) {
+        tempWorldCreation:
+        {
+            if (world == null) {
+                File cachedTempWorldFolder = getCachedWorldFolder(tempWorldName);
+                if (cachedTempWorldFolder != null) {
+                    try {
+                        Files.move(cachedTempWorldFolder.toPath(), Bukkit.getWorldContainer().toPath().resolve(cachedTempWorldFolder.getName()));
+                        world = Bukkit.createWorld(WorldCreator.name(tempWorldName));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    break tempWorldCreation;
+                }
+            }
             world = createNewTempWorld(realWorld, realWorldFolder, tempWorldFolder);
         }
 
@@ -73,6 +96,16 @@ public class TempWorld {
         realToTempWorldMap.put(realWorld.getUID(), tempWorld);
 
         return tempWorld;
+    }
+
+    public static @Nullable File getCachedWorldFolder(@NotNull String worldName) {
+        CACHED_TEMP_WORLDS.mkdirs();
+        for (File file : CACHED_TEMP_WORLDS.listFiles()) {
+            if (file.getName().equals(worldName)) {
+                return file;
+            }
+        }
+        return null;
     }
 
     private static @NotNull World createNewTempWorld(@NotNull World realWorld, @NotNull File realWorldFolder, @NotNull File tempWorldFolder) {
@@ -126,10 +159,15 @@ public class TempWorld {
         return this.tempWorld;
     }
 
-    public void deleteWorld() {
+    public void unloadWorld() {
         unregisterListener();
-        Bukkit.unloadWorld(this.tempWorld, false);
-        Utils.deleteWorldFolder(this.tempWorld.getName());
+        Bukkit.unloadWorld(this.tempWorld, true);
+        try {
+            Files.move(tempWorldFolder.toPath(), CACHED_TEMP_WORLDS.toPath().resolve(tempWorldFolder.getName()));
+        } catch (IOException e) {
+            e.printStackTrace();
+            Utils.deleteWorldFolder(this.tempWorld.getName());
+        }
         realToTempWorldMap.remove(this.realWorld.getUID());
 
         Utils.fixMC128547(tempWorld);
@@ -151,7 +189,7 @@ public class TempWorld {
                 if (getWorld().equals(event.getWorld())) {
                     TempWorld.this.isWorldUnloaded = true;
                     unregisterListener();
-                    deleteWorld();
+                    unloadWorld();
                     return;
                 }
             } catch (TempWorldNotLoadedException ignored) {
@@ -161,7 +199,7 @@ public class TempWorld {
             // If the real world is unloading
             if (event.getWorld().equals(TempWorld.this.realWorld)) {
                 WorldCleanerPlugin.getInstance().getLogger().warning("World " + TempWorld.this.realWorld.getName() + " was unloaded while it's cleaning!");
-                deleteWorld();
+                unloadWorld();
             }
         }
 

@@ -57,7 +57,7 @@ public class RegenRunnable extends BukkitRunnable {
         if (this.cancelled || this.step >= this.tasks.size()) {
             cancel();
             sendInfo("Done");
-            this.tempWorldObj.deleteWorld();
+            this.tempWorldObj.unloadWorld();
             WorldCleanerPlugin.getInstance().getWorkingPlayers().remove(this.playerUniqueId);
             return;
         }
@@ -78,7 +78,7 @@ public class RegenRunnable extends BukkitRunnable {
             e.printStackTrace();
             sendInfo("§cERROR! SEE THE CONSOLE");
             cancel();
-            this.tempWorldObj.deleteWorld();
+            this.tempWorldObj.unloadWorld();
             WorldCleanerPlugin.getInstance().getWorkingPlayers().remove(this.playerUniqueId);
         }
     }
