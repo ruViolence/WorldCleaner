@@ -55,7 +55,7 @@ public class TempWorld {
     }
 
     public static void terminate(WorldCleanerPlugin plugin) {
-        for (TempWorld tempWorld : realToTempWorldMap.values()) {
+        for (TempWorld tempWorld : realToTempWorldMap.values().toArray(new TempWorld[0])) {
             tempWorld.unloadWorld();
         }
         realToTempWorldMap.clear();
