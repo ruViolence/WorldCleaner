@@ -327,7 +327,8 @@ public class Utils {
     }
 
     public boolean isExcludedRootFile(File file) {
-        switch (file.getName()) {
+        String name = file.getName();
+        switch (name) {
             case "session.lock":
             case "uid.dat":
             case "advancements":
@@ -337,7 +338,7 @@ public class Utils {
             case "level.dat_old":
                 return true;
         }
-        return false;
+        return name.startsWith("DIM");
     }
 
     public boolean isExcludedDataFile(File file) {
