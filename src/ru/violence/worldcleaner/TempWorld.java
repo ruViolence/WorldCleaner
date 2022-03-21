@@ -26,10 +26,11 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class TempWorld {
     public final static String TEMP_WORLD_SUFFIX = "_WorldCleaner_Temp";
-    private static final Map<World, TempWorld> realToTempWorldMap = new HashMap<>(1);
+    private static final Map<UUID, TempWorld> realToTempWorldMap = new HashMap<>(1);
 
     private final World realWorld;
     private final World tempWorld;
@@ -51,14 +52,14 @@ public class TempWorld {
     }
 
     public static TempWorld get(World realWorld) {
-        return realToTempWorldMap.get(realWorld);
+        return realToTempWorldMap.get(realWorld.getUID());
     }
 
     public static TempWorld create(World realWorld) throws TempWorldCreateException {
         if (!Utils.isLoaded(realWorld)) {
             throw new TempWorldCreateException(TempWorldCreateException.Reason.REAL_WORLD_NOT_LOADED);
         }
-        if (realToTempWorldMap.get(realWorld) != null) {
+        if (realToTempWorldMap.get(realWorld.getUID()) != null) {
             throw new TempWorldCreateException(TempWorldCreateException.Reason.ALREADY_EXISTS);
         }
 
@@ -122,7 +123,7 @@ public class TempWorld {
         }
 
         TempWorld tempWorld = new TempWorld(realWorld, world);
-        realToTempWorldMap.put(realWorld, tempWorld);
+        realToTempWorldMap.put(realWorld.getUID(), tempWorld);
 
         return tempWorld;
     }
@@ -136,7 +137,7 @@ public class TempWorld {
         unregisterListener();
         Bukkit.unloadWorld(this.tempWorld, false);
         Utils.deleteWorldFolder(this.tempWorld.getName());
-        realToTempWorldMap.remove(this.realWorld);
+        realToTempWorldMap.remove(this.realWorld.getUID());
 
         // Let the GC delete the world from memory (MC-128547)
         try {
