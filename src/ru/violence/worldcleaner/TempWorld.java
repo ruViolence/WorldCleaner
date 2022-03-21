@@ -109,7 +109,6 @@ public class TempWorld {
             copy.type(realWorld.getWorldType());
             copy.generateStructures(realWorld.canGenerateStructures());
             world = Bukkit.createWorld(copy);
-            world.setKeepSpawnInMemory(false);
             world.setDifficulty(realWorld.getDifficulty());
             world.setGameRuleValue("doDaylightCycle", "false");
             world.setGameRuleValue("doEntityDrops", "false");
