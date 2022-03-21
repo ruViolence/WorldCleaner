@@ -22,6 +22,6 @@ public class TempWorldCreateException extends Exception {
     }
 
     public enum Reason {
-        ALREADY_EXISTS, REAL_WORLD_NOT_LOADED
+        REAL_WORLD_NOT_LOADED
     }
 }

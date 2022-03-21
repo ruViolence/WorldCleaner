@@ -20,6 +20,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.violence.worldcleaner.regen.RegenRunnable;
 import ru.violence.worldcleaner.util.Utils;
 
 import java.io.File;
@@ -32,6 +33,7 @@ import java.util.UUID;
 public class TempWorld {
     public final static String TEMP_WORLD_SUFFIX = "_WorldCleaner_Temp";
     private static final File CACHED_TEMP_WORLDS = new File(WorldCleanerPlugin.getInstance().getDataFolder(), "worlds");
+    private static final long WORLD_LIFETIME = 5 * 60 * 1000; // 5 Minutes 
     private static final Map<UUID, TempWorld> realToTempWorldMap = new HashMap<>(1);
 
     private final File realWorldFolder;
@@ -40,6 +42,7 @@ public class TempWorld {
     private final World tempWorld;
     private final WorldListener listener = new WorldListener();
 
+    private long lastUsage;
     private boolean isWorldUnloaded = false;
 
     private TempWorld(@NotNull File realWorldFolder, @NotNull File tempWorldFolder, @NotNull World realWorld, @NotNull World tempWorld) {
@@ -48,6 +51,7 @@ public class TempWorld {
         this.realWorld = Preconditions.checkNotNull(realWorld);
         this.tempWorld = Preconditions.checkNotNull(tempWorld);
         Bukkit.getPluginManager().registerEvents(this.listener, WorldCleanerPlugin.getInstance());
+        updateLastUsage();
     }
 
     public static void terminate(WorldCleanerPlugin plugin) {
@@ -61,12 +65,19 @@ public class TempWorld {
         return realToTempWorldMap.get(realWorld.getUID());
     }
 
-    public static TempWorld create(World realWorld) throws TempWorldCreateException {
+    public static @NotNull TempWorld @NotNull [] getAll() {
+        return realToTempWorldMap.values().toArray(new TempWorld[0]);
+    }
+
+    public static TempWorld getOrCreate(World realWorld) throws TempWorldCreateException {
         if (!Utils.isLoaded(realWorld)) {
             throw new TempWorldCreateException(TempWorldCreateException.Reason.REAL_WORLD_NOT_LOADED);
         }
-        if (realToTempWorldMap.get(realWorld.getUID()) != null) {
-            throw new TempWorldCreateException(TempWorldCreateException.Reason.ALREADY_EXISTS);
+
+        TempWorld existed = realToTempWorldMap.get(realWorld.getUID());
+        if (existed != null) {
+            existed.updateLastUsage();
+            return existed;
         }
 
         String tempWorldName = realWorld.getName() + TempWorld.TEMP_WORLD_SUFFIX;
@@ -154,7 +165,11 @@ public class TempWorld {
         return world;
     }
 
-    public @NotNull World getWorld() throws TempWorldNotLoadedException {
+    public @NotNull World getRealWorld() {
+        return this.realWorld;
+    }
+
+    public @NotNull World getTempWorld() throws TempWorldNotLoadedException {
         if (this.isWorldUnloaded) throw TempWorldNotLoadedException.INSTANCE;
         return this.tempWorld;
     }
@@ -173,6 +188,18 @@ public class TempWorld {
         Utils.fixMC128547(tempWorld);
     }
 
+    public boolean isCanBeUnloaded() {
+        return RegenRunnable.get(realWorld) == null && lastUsage + WORLD_LIFETIME < System.currentTimeMillis();
+    }
+
+    public long getLastUsage() {
+        return this.lastUsage;
+    }
+
+    public void updateLastUsage() {
+        this.lastUsage = System.currentTimeMillis();
+    }
+
     private void unregisterListener() {
         HandlerList.unregisterAll(this.listener);
     }
@@ -186,7 +213,7 @@ public class TempWorld {
         public void onWorldUnload(WorldUnloadEvent event) {
             // If the temp world is unloading
             try {
-                if (getWorld().equals(event.getWorld())) {
+                if (getTempWorld().equals(event.getWorld())) {
                     TempWorld.this.isWorldUnloaded = true;
                     unregisterListener();
                     unloadWorld();

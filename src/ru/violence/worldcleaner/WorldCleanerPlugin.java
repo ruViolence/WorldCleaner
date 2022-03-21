@@ -12,13 +12,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import ru.violence.worldcleaner.regen.RegenRunnable;
 import ru.violence.worldcleaner.util.Utils;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
 public class WorldCleanerPlugin extends JavaPlugin implements Listener {
     private static @Getter WorldCleanerPlugin instance;
-    private final @Getter Map<UUID, RegenRunnable> workingPlayers = new HashMap<>();
 
     @Override
     public void onLoad() {
@@ -33,6 +28,7 @@ public class WorldCleanerPlugin extends JavaPlugin implements Listener {
         }
 
         Bukkit.getPluginManager().registerEvents(new TempWorldInitListener(), this);
+        new TempWorldUnloadTask().runTaskTimer(this, 0, 60 * 20 /* 1 Minute */);
     }
 
     @Override
@@ -54,7 +50,7 @@ public class WorldCleanerPlugin extends JavaPlugin implements Listener {
         }
 
         if (args[0].equalsIgnoreCase("cancel")) {
-            RegenRunnable runnable = this.workingPlayers.get(player.getUniqueId());
+            RegenRunnable runnable = RegenRunnable.get(player);
             if (runnable == null) {
                 player.sendMessage("§cYou are not processing a task!");
                 return true;
@@ -65,7 +61,7 @@ public class WorldCleanerPlugin extends JavaPlugin implements Listener {
             return true;
         }
 
-        if (this.workingPlayers.containsKey(player.getUniqueId())) {
+        if (RegenRunnable.get(player) != null) {
             player.sendMessage("§cYou are already processing a task!");
             return true;
         }
@@ -85,10 +81,8 @@ public class WorldCleanerPlugin extends JavaPlugin implements Listener {
         genPad = Utils.clamp(genPad, 1, 10);
 
         try {
-            TempWorld tempWorld = TempWorld.create(realWorld);
-            RegenRunnable runnable = new RegenRunnable(player, realWorld, tempWorld, chunkX, chunkZ, radius, maxMspt, genPad);
-            getWorkingPlayers().put(player.getUniqueId(), runnable);
-            runnable.runTaskTimer(this, 0, 0);
+            TempWorld tempWorld = TempWorld.getOrCreate(realWorld);
+            RegenRunnable.start(player, tempWorld, chunkX, chunkZ, radius, maxMspt, genPad);
         } catch (TempWorldCreateException e) {
             player.sendMessage("§cError: " + e.getReason());
         } catch (TempWorldNotLoadedException e) {
