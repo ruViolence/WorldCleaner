@@ -33,6 +33,9 @@ public class WorldCleanerPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        for (RegenRunnable task : RegenRunnable.getRunningTasks()) {
+            task.cancelRegen();
+        }
         TempWorld.terminate(this);
         instance = null;
     }

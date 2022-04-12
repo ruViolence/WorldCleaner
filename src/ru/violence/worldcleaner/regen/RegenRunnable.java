@@ -3,6 +3,9 @@ package ru.violence.worldcleaner.regen;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
@@ -33,12 +36,11 @@ public class RegenRunnable extends BukkitRunnable {
     private final @Getter int radius;
     private final @Getter List<RegenChunk> regenChunks;
     private final @Getter List<IntPair> chunkToGenerate;
+    private final @NotNull BossBar bossBar;
 
-    private final DecimalFormat percentageFormat = new DecimalFormat("#0.00");
     private final DecimalFormat speedFormat = new DecimalFormat("#0.0");
     private final List<RegenTask> tasks = new ArrayList<>();
     private int step = 0;
-    private boolean cancelled = false;
 
     private RegenRunnable(Player player, TempWorld tempWorldObj, int middleX, int middleZ, int radius, int maxMspt, int genPad) throws TempWorldNotLoadedException {
         this.playerUniqueId = player.getUniqueId();
@@ -56,6 +58,8 @@ public class RegenRunnable extends BukkitRunnable {
         this.tasks.add(new TempChunksGenerate(this, maxNspt));
         this.tasks.add(new ChunksCleaning(this, maxNspt));
         this.tasks.add(new ScheduleLightClean(this));
+        this.bossBar = Bukkit.createBossBar("", BarColor.YELLOW, BarStyle.SEGMENTED_10);
+        this.bossBar.addPlayer(player);
     }
 
     public static @NotNull RegenRunnable start(Player player, TempWorld tempWorld, int middleX, int middleZ, int radius, int maxMspt, int genPad) throws TempWorldNotLoadedException {
@@ -79,13 +83,14 @@ public class RegenRunnable extends BukkitRunnable {
         return null;
     }
 
+    public static @NotNull List<RegenRunnable> getRunningTasks() {
+        return new ArrayList<>(RUNNING_TASKS.values());
+    }
+
     @Override
     public void run() {
-        if (this.cancelled || this.step >= this.tasks.size()) {
-            cancel();
-            sendInfo("Done");
-            this.tempWorldObj.updateLastUsage();
-            RUNNING_TASKS.remove(this.playerUniqueId);
+        if (this.step >= this.tasks.size()) {
+            cancelRegen();
             return;
         }
 
@@ -96,7 +101,7 @@ public class RegenRunnable extends BukkitRunnable {
 
             int done = task.getDone();
             int total = task.getTotal();
-            sendInfo("§e" + task.getTaskName() + " [" + this.percentageFormat.format(done * 100.0f / total) + "%] [" + done + "/" + total + "] [" + this.speedFormat.format(calcSpeed()) + " per sec]");
+            updateBossBar("§e" + task.getTaskName() + " [" + done + "/" + total + "] [" + this.speedFormat.format(calcSpeed()) + " per sec]", (double) done / total);
 
             if (isTaskDone) {
                 ++this.step;
@@ -106,6 +111,7 @@ public class RegenRunnable extends BukkitRunnable {
             sendInfo("§cERROR! SEE THE CONSOLE");
             cancel();
             this.tempWorldObj.updateLastUsage();
+            this.bossBar.removeAll();
             RUNNING_TASKS.remove(this.playerUniqueId);
         }
     }
@@ -118,6 +124,19 @@ public class RegenRunnable extends BukkitRunnable {
         return 0;
     }
 
+    private void updateBossBar(String title, double progress) {
+        Player player = Bukkit.getPlayer(playerUniqueId);
+        if (player == null) return;
+
+        if (!bossBar.getPlayers().contains(player)) {
+            bossBar.removeAll();
+            bossBar.addPlayer(player);
+        }
+
+        if (!bossBar.getTitle().equals(title)) bossBar.setTitle(title);
+        bossBar.setProgress(progress);
+    }
+
     private void sendInfo(String message) {
         Player player = Bukkit.getPlayer(this.playerUniqueId);
         if (player != null) {
@@ -126,6 +145,10 @@ public class RegenRunnable extends BukkitRunnable {
     }
 
     public void cancelRegen() {
-        this.cancelled = true;
+        super.cancel();
+        sendInfo("Done");
+        this.bossBar.removeAll();
+        this.tempWorldObj.updateLastUsage();
+        RUNNING_TASKS.remove(this.playerUniqueId);
     }
 }
