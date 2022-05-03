@@ -22,6 +22,7 @@ public class PrepareChunkToGenerateList extends TickTimeLimitedIndexIteratorTask
     @Override
     boolean doIter(int currentIndex) {
         RegenChunk regenChunk = this.runnable.getRegenChunks().get(currentIndex);
+        if (this.runnable.getTempWorld().isChunkGenerated(regenChunk.x, regenChunk.z)) return true;
         List<IntPair> paddedChunks = Utils.radiusChunksCoordsReversed(regenChunk.x, regenChunk.z, this.genPad);
         for (IntPair chunkCoord : paddedChunks) {
             if (this.uniqueChunks.add(chunkCoord)) {
