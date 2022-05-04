@@ -1,7 +1,10 @@
 package ru.violence.worldcleaner.regen;
 
 import com.bergerkiller.bukkit.lightcleaner.lighting.LightingService;
+import ru.violence.worldcleaner.util.IntPair;
 import ru.violence.worldcleaner.util.Utils;
+
+import java.util.stream.Collectors;
 
 public class ScheduleLightClean implements RegenTask {
     private final RegenRunnable runnable;
@@ -14,7 +17,10 @@ public class ScheduleLightClean implements RegenTask {
     public boolean run() {
         LightingService.ScheduleArguments args = new LightingService.ScheduleArguments();
         args.setWorld(this.runnable.getRealWorld());
-        args.setChunks(Utils.intPairsToLongHashSet(this.runnable.getChunkToGenerate()));
+        args.setChunks(Utils.intPairsToLongHashSet(this.runnable.getRegenChunks()
+                .stream()
+                .map(rc -> new IntPair(rc.x, rc.z))
+                .collect(Collectors.toList())));
         LightingService.schedule(args);
         return true;
     }
