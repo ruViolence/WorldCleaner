@@ -101,7 +101,7 @@ public class RegenRunnable extends BukkitRunnable {
 
             int done = task.getDone();
             int total = task.getTotal();
-            updateBossBar("§e" + task.getTaskName() + " [" + done + "/" + total + "] [" + this.speedFormat.format(calcSpeed()) + " per sec]", (double) done / total);
+            updateBossBar("§e" + task.getTaskName() + " [" + done + "/" + total + "] [" + this.speedFormat.format(calcSpeed()) + " per sec]", total > 0 ? (double) done / total : 1);
 
             if (isTaskDone) {
                 ++this.step;
