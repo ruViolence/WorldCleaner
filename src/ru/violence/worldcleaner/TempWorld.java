@@ -92,7 +92,7 @@ public class TempWorld {
                 if (cachedTempWorldFolder != null) {
                     try {
                         Files.move(cachedTempWorldFolder.toPath(), Bukkit.getWorldContainer().toPath().resolve(cachedTempWorldFolder.getName()));
-                        world = Bukkit.createWorld(WorldCreator.name(tempWorldName));
+                        world = Bukkit.createWorld(WorldCreator.name(tempWorldName).environment(realWorld.getEnvironment()));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -148,6 +148,7 @@ public class TempWorld {
         WorldCreator copy = new WorldCreator(tempWorldFolder.getName()).copy(realWorld);
         copy.type(realWorld.getWorldType());
         copy.generateStructures(realWorld.canGenerateStructures());
+        copy.environment(realWorld.getEnvironment());
 
         World world = Bukkit.createWorld(copy);
 
